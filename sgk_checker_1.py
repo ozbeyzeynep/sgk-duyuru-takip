@@ -62,81 +62,53 @@ def excel_linki_bul(duyuru_url):
 
 def teams_bildirimi_gonder(baslik, duyuru_url, excel_url):
     """
-    Teams sohbetine Adaptive Card formatında butonlu bildirim gönder.
+    Teams Incoming Webhook'a MessageCard formatında butonlu bildirim gönder.
 
     Kart yapısı:
-      🔔 SGK'da Yeni Duyuru!  (başlık)
+      🔔 SGK'da Yeni Duyuru!  (başlık, turuncu çizgili)
       ──────────────────────
       Duyuru başlığı metni
-      ──────────────────────
-      📅 Tespit tarihi  |  15.05.2026 08:43
-      📎 Excel          |  Mevcut ✅  /  Bulunamadı ❌
+      📅 Tespit tarihi: 15.05.2026 08:43
+      📎 Excel: Mevcut  /  Bulunamadı
       ──────────────────────
       [Duyuruyu Aç]   [Excel'i İndir]   (butonlar)
     """
     tarih = datetime.now().strftime("%d.%m.%Y %H:%M")
     excel_durum = "Mevcut ✅" if excel_url else "Bulunamadı ❌"
 
-    # ── Adaptive Card body ──────────────────────────────────────────────────
-    card_body = [
-        {
-            "type": "TextBlock",
-            "text": "🔔 SGK'da Yeni Duyuru!",
-            "weight": "Bolder",
-            "size": "Large",
-            "color": "Attention",
-            "wrap": True
-        },
-        {
-            "type": "TextBlock",
-            "text": baslik,
-            "wrap": True,
-            "spacing": "Medium"
-        },
-        {"type": "ColumnSet", "spacing": "Medium", "columns": [
-            {"type": "Column", "width": "auto", "items": [
-                {"type": "TextBlock", "text": "📅 **Tespit tarihi**", "wrap": True},
-                {"type": "TextBlock", "text": "📎 **Excel**",         "wrap": True, "spacing": "Small"}
-            ]},
-            {"type": "Column", "width": "stretch", "items": [
-                {"type": "TextBlock", "text": tarih,       "wrap": True},
-                {"type": "TextBlock", "text": excel_durum, "wrap": True, "spacing": "Small"}
-            ]}
-        ]}
-    ]
-
-    # ── Butonlar ────────────────────────────────────────────────────────────
+    # ── Butonlar (potentialAction) ───────────────────────────────────────────
     actions = [
         {
-            "type": "Action.OpenUrl",
-            "title": "Duyuruyu Aç",
-            "url": duyuru_url,
-            "style": "positive"
+            "@type": "OpenUri",
+            "name": "Duyuruyu Aç",
+            "targets": [{"os": "default", "uri": duyuru_url}]
         }
     ]
     if excel_url:
         actions.append({
-            "type": "Action.OpenUrl",
-            "title": "Excel'i İndir",
-            "url": excel_url
+            "@type": "OpenUri",
+            "name": "Excel'i İndir",
+            "targets": [{"os": "default", "uri": excel_url}]
         })
 
-    # ── Teams mesaj payload (Adaptive Card) ────────────────────────────────
+    # ── MessageCard payload ─────────────────────────────────────────────────
     payload = {
-        "type": "message",
-        "attachments": [
+        "@type": "MessageCard",
+        "@context": "https://schema.org/extensions",
+        "themeColor": "E8A020",           # turuncu kenar çizgisi
+        "summary": "SGK'da Yeni Duyuru",
+        "sections": [
             {
-                "contentType": "application/vnd.microsoft.card.adaptive",
-                "content": {
-                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-                    "type": "AdaptiveCard",
-                    "version": "1.4",
-                    "body": card_body,
-                    "actions": actions,
-                    "msteams": {"width": "Full"}
-                }
+                "activityTitle": "🔔 SGK'da Yeni Duyuru!",
+                "activityText": baslik,
+                "facts": [
+                    {"name": "📅 Tespit tarihi", "value": tarih},
+                    {"name": "📎 Excel",          "value": excel_durum}
+                ],
+                "markdown": True
             }
-        ]
+        ],
+        "potentialAction": actions
     }
 
     r = requests.post(TEAMS_WEBHOOK, json=payload, timeout=15)
