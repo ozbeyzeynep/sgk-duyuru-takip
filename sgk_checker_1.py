@@ -6,10 +6,10 @@ import re
 from datetime import datetime
 
 # ── Ayarlar ──────────────────────────────────────────────────────────────────
-SGK_URL = "https://www.sgk.gov.tr/duyuru"
-ANAHTAR_KELIME = "bedeli ödenecek"          # büyük/küçük harf duyarsız arama
-DURUM_DOSYASI = "gorulmus_duyurular.json"   # daha önce görülen duyurular
-TEAMS_WEBHOOK = os.environ["TEAMS_WEBHOOK_URL"]  # GitHub Secret'tan gelir
+SGK_URL         = "https://www.sgk.gov.tr/duyuru"
+ANAHTAR_KELIME  = "bedeli ödenecek"           # büyük/küçük harf duyarsız arama
+DURUM_DOSYASI   = "gorulmus_duyurular.json"   # daha önce görülen duyurular
+TEAMS_WEBHOOK   = os.environ["TEAMS_WEBHOOK_URL"]  # GitHub Secret'tan gelir
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -40,7 +40,6 @@ def duyurulari_cek():
             if not href.startswith("http"):
                 href = "https://www.sgk.gov.tr" + href
             duyurular.append({"baslik": metin, "url": href})
-
     return duyurular
 
 
@@ -53,33 +52,102 @@ def excel_linki_bul(duyuru_url):
 
     for a in soup.find_all("a", href=True):
         href = a["href"]
-        if re.search(r"\.(xlsx|xls|xlsm)", href, re.IGNORECASE) or ("DownloadFile" in href and ".xlsx" in href):
+        if re.search(r"\.(xlsx|xls|xlsm)", href, re.IGNORECASE) or \
+           ("DownloadFile" in href and ".xlsx" in href):
             if not href.startswith("http"):
                 href = "https://www.sgk.gov.tr" + href
             return href
-
     return None
 
 
 def teams_bildirimi_gonder(baslik, duyuru_url, excel_url):
-    """Teams sohbetine düz metin bildirim gönder."""
+    """
+    Teams sohbetine Adaptive Card formatında butonlu bildirim gönder.
+
+    Kart yapısı:
+      🔔 SGK'da Yeni Duyuru!  (başlık)
+      ──────────────────────
+      Duyuru başlığı metni
+      ──────────────────────
+      📅 Tespit tarihi  |  15.05.2026 08:43
+      📎 Excel          |  Mevcut ✅  /  Bulunamadı ❌
+      ──────────────────────
+      [Duyuruyu Aç]   [Excel'i İndir]   (butonlar)
+    """
     tarih = datetime.now().strftime("%d.%m.%Y %H:%M")
+    excel_durum = "Mevcut ✅" if excel_url else "Bulunamadı ❌"
 
-    mesaj = f"SGK'da Yeni Duyuru!\n\n{baslik}\n\nTespit tarihi: {tarih}\n\nDuyuru: {duyuru_url}"
+    # ── Adaptive Card body ──────────────────────────────────────────────────
+    card_body = [
+        {
+            "type": "TextBlock",
+            "text": "🔔 SGK'da Yeni Duyuru!",
+            "weight": "Bolder",
+            "size": "Large",
+            "color": "Attention",
+            "wrap": True
+        },
+        {
+            "type": "TextBlock",
+            "text": baslik,
+            "wrap": True,
+            "spacing": "Medium"
+        },
+        {"type": "ColumnSet", "spacing": "Medium", "columns": [
+            {"type": "Column", "width": "auto", "items": [
+                {"type": "TextBlock", "text": "📅 **Tespit tarihi**", "wrap": True},
+                {"type": "TextBlock", "text": "📎 **Excel**",         "wrap": True, "spacing": "Small"}
+            ]},
+            {"type": "Column", "width": "stretch", "items": [
+                {"type": "TextBlock", "text": tarih,       "wrap": True},
+                {"type": "TextBlock", "text": excel_durum, "wrap": True, "spacing": "Small"}
+            ]}
+        ]}
+    ]
+
+    # ── Butonlar ────────────────────────────────────────────────────────────
+    actions = [
+        {
+            "type": "Action.OpenUrl",
+            "title": "Duyuruyu Aç",
+            "url": duyuru_url,
+            "style": "positive"
+        }
+    ]
     if excel_url:
-        mesaj += f"\n\nExcel: {excel_url}"
+        actions.append({
+            "type": "Action.OpenUrl",
+            "title": "Excel'i İndir",
+            "url": excel_url
+        })
 
-    payload = {"text": mesaj}
+    # ── Teams mesaj payload (Adaptive Card) ────────────────────────────────
+    payload = {
+        "type": "message",
+        "attachments": [
+            {
+                "contentType": "application/vnd.microsoft.card.adaptive",
+                "content": {
+                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                    "type": "AdaptiveCard",
+                    "version": "1.4",
+                    "body": card_body,
+                    "actions": actions,
+                    "msteams": {"width": "Full"}
+                }
+            }
+        ]
+    }
 
     r = requests.post(TEAMS_WEBHOOK, json=payload, timeout=15)
     r.raise_for_status()
-    print(f"Teams bildirimi gönderildi: {baslik}")
+    print(f"Teams bildirimi gönderildi: {baslik[:60]}")
 
 
 def main():
     print(f"[{datetime.now().strftime('%d.%m.%Y %H:%M')}] SGK duyuruları kontrol ediliyor...")
 
-    gorulmusler = gorulmusleri_yukle()
+    gorulmusler    = gorulmusleri_yukle()
     gorulmus_urllar = {d["url"] for d in gorulmusler}
 
     yeni_duyurular = duyurulari_cek()
