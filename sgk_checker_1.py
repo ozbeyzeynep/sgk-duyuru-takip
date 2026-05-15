@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 
 # ── Ayarlar ──────────────────────────────────────────────────────────────────
-SGK_URL = "https://www.sgk.gov.tr/tr/duyurular"
+SGK_URL = "https://www.sgk.gov.tr/duyuru"
 ANAHTAR_KELIME = "bedeli ödenecek"          # büyük/küçük harf duyarsız arama
 DURUM_DOSYASI = "gorulmus_duyurular.json"   # daha önce görülen duyurular
 TEAMS_WEBHOOK = os.environ["TEAMS_WEBHOOK_URL"]  # GitHub Secret'tan gelir
