@@ -1,1 +1,26 @@
-upstream connect error or disconnect/reset before headers. reset reason: connection termination
+name: SGK Duyuru Takip
+
+on:
+  schedule:
+    - cron: "0 5,15 * * *"
+  workflow_dispatch:
+
+jobs:
+  kontrol:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodu çek
+        uses: actions/checkout@v4
+
+      - name: Python kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Bagımlılıkları yukle
+        run: pip install requests beautifulsoup4
+
+      - name: SGKyi kontrol et
+        env:
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+        run: python sgk_checker_1.py
