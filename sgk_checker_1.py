@@ -54,7 +54,7 @@ def excel_linki_bul(duyuru_url):
 
     for a in soup.find_all("a", href=True):
         href = a["href"]
-        if re.search(r"\.(xlsx|xls|xlsm)(\?.*)?$", href, re.IGNORECASE):
+       if re.search(r"\.(xlsx|xls|xlsm)", href, re.IGNORECASE) or "DownloadFile" in href:
             if not href.startswith("http"):
                 href = "https://www.sgk.gov.tr" + href
             return href
