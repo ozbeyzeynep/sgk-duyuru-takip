@@ -33,7 +33,6 @@ def duyurulari_cek():
     soup = BeautifulSoup(r.text, "html.parser")
 
     duyurular = []
-    # SGK duyuru listesindeki her bağlantıyı tara
     for a in soup.find_all("a", href=True):
         metin = a.get_text(strip=True)
         if ANAHTAR_KELIME.lower() in metin.lower():
@@ -63,61 +62,18 @@ def excel_linki_bul(duyuru_url):
 
 
 def teams_bildirimi_gonder(baslik, duyuru_url, excel_url):
-    """Teams kanalına Adaptive Card formatında bildirim gönder."""
+    """Teams sohbetine düz metin bildirim gönder."""
     tarih = datetime.now().strftime("%d.%m.%Y %H:%M")
 
-    payload = {
-        "type": "message",
-        "attachments": [
-            {
-                "contentType": "application/vnd.microsoft.card.adaptive",
-                "content": {
-                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-                    "type": "AdaptiveCard",
-                    "version": "1.4",
-                    "body": [
-                        {
-                            "type": "TextBlock",
-                            "text": "🔔 SGK'da Yeni Duyuru!",
-                            "weight": "Bolder",
-                            "size": "Large",
-                            "color": "Accent"
-                        },
-                        {
-                            "type": "TextBlock",
-                            "text": baslik,
-                            "wrap": True,
-                            "spacing": "Small"
-                        },
-                        {
-                            "type": "FactSet",
-                            "facts": [
-                                {"title": "📅 Tespit tarihi", "value": tarih},
-                                {"title": "📎 Excel", "value": "Mevcut ✅" if excel_url else "Bulunamadı ⚠️"}
-                            ]
-                        }
-                    ],
-                    "actions": [
-                        {
-                            "type": "Action.OpenUrl",
-                            "title": "Duyuruyu Aç",
-                            "url": duyuru_url
-                        }
-                    ] + ([
-                        {
-                            "type": "Action.OpenUrl",
-                            "title": "Excel'i İndir",
-                            "url": excel_url
-                        }
-                    ] if excel_url else [])
-                }
-            }
-        ]
-    }
+    mesaj = f"SGK'da Yeni Duyuru!\n\n{baslik}\n\nTespit tarihi: {tarih}\n\nDuyuru: {duyuru_url}"
+    if excel_url:
+        mesaj += f"\n\nExcel: {excel_url}"
+
+    payload = {"text": mesaj}
 
     r = requests.post(TEAMS_WEBHOOK, json=payload, timeout=15)
     r.raise_for_status()
-    print(f"✅ Teams bildirimi gönderildi: {baslik}")
+    print(f"Teams bildirimi gönderildi: {baslik}")
 
 
 def main():
